@@ -12,10 +12,12 @@ pub struct Particle {
 
 fn sum_with_bounds(a: &f64, b: &f64, bound: &f64) -> f64 {
     let sum = a + b;
-    match sum {
-        sum if sum > *bound => *bound,
-        sum if sum < -bound => -bound,
-        _ => sum,
+    if sum > *bound {
+        *bound
+    } else if sum < -bound {
+        -bound
+    } else {
+        sum
     }
 }
 
@@ -37,13 +39,22 @@ impl Particle {
         }
     }
 
+    pub fn hit_boundaries(&mut self, bound: &f64) {
+        for (idx, _x) in self.position.iter().enumerate() {
+            if (self.position[idx] >= *bound) || (self.position[idx] <= -bound) {
+                self.velocity[idx] *= -1.0
+            }
+        }
+    }
+
     pub fn update_pos_cost(&mut self, bound: &f64) {
         self.position = self
             .position
             .iter()
             .zip(&self.velocity)
-            .map(|(a, b)| sum_with_bounds(a, b, bound))
+            .map(|(a, b)| a + b)
             .collect();
+        self.hit_boundaries(bound);
         self.cost = func_rastrigin(&self.position)
     }
 
@@ -56,8 +67,8 @@ impl Particle {
         gbias: &f64,
     ) {
         for (idx, x) in self.position.iter().enumerate() {
-            let local_coef = lbias * rng.gen_range(0.0..1.0) * (x - self.position[idx]);
-            let global_coef = gbias * rng.gen_range(0.0..1.0) * (x - gbest.position[idx]);
+            let local_coef = lbias * rng.gen_range(0.0..1.0) * (self.best_position[idx] - x);
+            let global_coef = gbias * rng.gen_range(0.0..1.0) * (gbest.position[idx] - x);
             self.velocity[idx] =
                 sum_with_bounds(&self.velocity[idx], &(local_coef + global_coef), v_bound);
         }
@@ -105,6 +116,7 @@ pub fn search(
             a.update_best_position();
         });
         best_particle = get_best_particle(&mut population);
+        println!("Current best {}", best_particle.cost);
     }
     best_particle
 }
